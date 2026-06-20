@@ -21,24 +21,40 @@ class FoundryAgentExecutor(AgentExecutor):
 
     async def _process_request(self, message_parts: list[Part], context_id: str, task_updater: TaskUpdater) -> None:
         # Process a user request through the Foundry agent
-
+        
         try:
             # Retrieve message from A2A parts
             user_message = message_parts[0].root.text
 
             # Get the title agent
+            agent = await self._get_or_create_agent()
 
 
             # Update the task status
-            
+            await task_updater.update_status(
+                TaskState.working,
+                message=new_agent_text_message('Title Agent is processing your request...', context_id=context_id),
+            )
+                        
 
             # Run the agent conversation
+            responses = await agent.run_conversation(user_message)
             
 
             # Update the task with the responses
-            
+            for response in responses:
+                await task_updater.update_status(
+                    TaskState.working,
+                    message=new_agent_text_message(response, context_id=context_id),
+                )
+                        
 
+       
             # Mark the task as complete
+            final_message = responses[-1] if responses else 'Task completed.'
+            await task_updater.complete(
+                message=new_agent_text_message(final_message, context_id=context_id)
+            )
             
 
         except Exception as e:
@@ -58,6 +74,7 @@ class FoundryAgentExecutor(AgentExecutor):
         await updater.start_work()
 
         # Process the request
+        await self._process_request(context.message.parts, context.context_id, updater)
         
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue):
